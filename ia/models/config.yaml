@@ -1,0 +1,23 @@
+# Dataset configuration pour YOLOv8 fine-tuning
+# Classes de pannes et composants vehicules
+
+path: C:/Users/EmsiC/Desktop/mon-projet/python-service/models/data
+train: train/images
+val: val/images
+
+nc: 14
+names:
+  0: plaque_immatriculation
+  1: compteur_vitesse
+  2: roue
+  3: pneu_creve
+  4: frein
+  5: phare
+  6: feu_arriere
+  7: carrosserie_impact
+  8: carrosserie_fissure
+  9: pare_brise_fissure
+  10: retroviseur
+  11: hayon
+  12: pot_echappement
+  13: klaxon

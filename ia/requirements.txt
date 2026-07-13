@@ -1,0 +1,10 @@
+Flask==2.2.5
+Flask-Cors==3.0.10
+opencv-python==4.8.0.74
+numpy==1.24.3
+pillow==12.2.0
+pytesseract==0.3.10
+torch==2.12.0
+torchvision==0.27.0
+ultralytics==8.4.60
+gunicorn==21.2.0

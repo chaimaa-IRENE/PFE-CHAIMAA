@@ -1,0 +1,216 @@
+@startuml SmartFleet_Classes
+!theme plain
+skinparam classAttributeIconSize 0
+
+class Chauffeur {
+  +ID chauffeur
+  +véhicule assigné
+  +matricule scanné
+  +checklist : pneus, freins, feux, extincteur, documents
+  +anomalies déclarées
+  +preuves : photo / vidéo
+  +--- Actions ---
+  +scannerQRCode()
+  +choisirVehicule()
+  +remplirChecklistEmojis()
+  +declarerAnomalie()
+  +envoyerRapport()
+}
+
+class "Équipe Parc / Flotte" {
+  +ID gestionnaire
+  +documents légaux : carte grise, assurance, ONSSA
+  +dates d'expiration
+  +statut : valide / expiré / manquant
+  +--- Actions ---
+  +importerDocumentOCR()
+  +validerDonneesExtraites()
+  +gererTableauCodeCouleur()
+  +genererAlerteExpiration()
+}
+
+class "Système Smart Fleet ID" {
+  +base véhicules
+  +base chauffeurs
+  +base documents
+  +moteur IA analyse
+  +alertes critiques
+  +--- Actions ---
+  +verifierImmatriculation()
+  +afficherChecklist()
+  +comparerChecklistVsDocuments()
+  +calculerIndiceQualite()
+  +genererAlertesAuto()
+}
+
+class "Responsable Support (RS)" {
+  +ID responsable
+  +notifications reçues
+  +anomalies validées
+  +interventions planifiées
+  +--- Actions ---
+  +recevoirAlertes()
+  +validerAnomalies()
+  +assignerMaintenance()
+}
+
+class Managers {
+  +ID manager
+  +site / zone
+  +alertes reçues
+  +validation globale
+  +--- Actions ---
+  +superviserConformite()
+  +consulterDashboard()
+  +validerAnomalies()
+}
+
+class "Équipe Maintenance" {
+  +ID technicien
+  +anomalies assignées
+  +interventions réalisées
+  +statut véhicule
+  +--- Actions ---
+  +reparerVehicule()
+  +mettreAJourStatut()
+  +historiserIntervention()
+}
+
+class "Admin / Direction" {
+  +ID admin
+  +dashboard global
+  +indicateurs performance
+  +rapports exportés
+  +--- Actions ---
+  +consulterDashboardGlobal()
+  +analyserPerformanceFlotte()
+  +exporterRapportExcelPDF()
+  +recevoirRecommandationsIA()
+}
+
+class Vehicule {
+  +id : Long
+  +immatriculation : String
+  +marque : String
+  +modele : String
+  +type : String
+  +branchCode : String
+  +kilometrage : Integer
+  +annee : Integer
+  +carburant : String
+  +statut : String
+  +agence : String
+  +getAnalyse()
+  +getRapport()
+}
+
+class DriverChecklist {
+  +id : Long
+  +chauffeurId : Long
+  +chauffeurNom : String
+  +vehiculeId : Long
+  +vehiculeImmatriculation : String
+  +dateChecklist : LocalDateTime
+  +pneus : Boolean
+  +freins : Boolean
+  +feux : Boolean
+  +extincteur : Boolean
+  +documents : Boolean
+  +commentaire : String
+  +signature : String
+  +statut : String
+}
+
+class LegalDocument {
+  +id : Long
+  +vehiculeId : Long
+  +vehiculeImmatriculation : String
+  +type : String (CARTE_GRISE, ASSURANCE, ONSSA, METROLOGIQUE)
+  +numeroDocument : String
+  +dateExpiration : LocalDate
+  +proprietaire : String
+  +fichierUrl : String
+  +ocrData : String
+  +statut : String (VALIDE/BIENTOT_EXPIRE/EXPIRE)
+  +updateStatut()
+}
+
+class QRCode {
+  +id : Long
+  +vehiculeId : Long
+  +code : String
+  +dateGeneration : LocalDateTime
+  +actif : Boolean
+}
+
+class FleetAlert {
+  +id : Long
+  +vehiculeId : Long
+  +typeAlerte : String
+  +description : String
+  +criticite : String
+  +dateCreation : LocalDateTime
+  +resolu : Boolean
+}
+
+class VehicleBlocking {
+  +id : Long
+  +vehiculeId : Long
+  +bloque : Boolean
+  +raison : String
+  +dateBlocage : LocalDateTime
+  +dateDeblocage : LocalDateTime
+}
+
+class DeclarationIncident {
+  +id : Long
+  +numeroDemande : String
+  +chauffeurNom : String
+  +vehiculeImmatriculation : String
+  +typePanne : String
+  +criticite : String
+  +statut : String
+  +dateHeure : LocalDateTime
+  +elementVehicule : String
+  +categorie : String
+  +photo : byte[]
+  +video : byte[]
+}
+
+' Associations acteurs ↔ entités
+Chauffeur --> Vehicule : "conduit"
+Chauffeur --> DriverChecklist : "remplit"
+Chauffeur --> DeclarationIncident : "déclare"
+
+"Équipe Parc / Flotte" --> LegalDocument : "importe via OCR"
+"Équipe Parc / Flotte" --> Vehicule : "gère documents"
+
+"Système Smart Fleet ID" --> Vehicule : "vérifie immatriculation"
+"Système Smart Fleet ID" --> DriverChecklist : "analyse"
+"Système Smart Fleet ID" --> LegalDocument : "compare"
+"Système Smart Fleet ID" --> FleetAlert : "génère"
+"Système Smart Fleet ID" --> VehicleBlocking : "bloque"
+
+"Responsable Support (RS)" --> FleetAlert : "reçoit & valide"
+"Responsable Support (RS)" --> DeclarationIncident : "traite"
+
+Managers --> FleetAlert : "supervise"
+Managers --> Vehicule : "consulte"
+
+"Équipe Maintenance" --> Vehicule : "répare & met à jour"
+"Équipe Maintenance" --> DeclarationIncident : "historise intervention"
+
+"Admin / Direction" --> FleetAlert : "analyse performance"
+"Admin / Direction" --> Vehicule : "dashboard global"
+"Admin / Direction" --> DriverChecklist : "exporte rapports"
+
+' Associations entités ↔ entités
+Vehicule --> DriverChecklist : "concerne"
+Vehicule --> LegalDocument : "possède"
+Vehicule --> QRCode : "identifié par"
+Vehicule --> DeclarationIncident : "sujet de"
+LegalDocument --> FleetAlert : "génère alerte"
+DriverChecklist --> FleetAlert : "génère alerte"
+FleetAlert --> VehicleBlocking : "entraîne blocage"
+
+@enduml

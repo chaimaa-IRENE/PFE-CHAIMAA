@@ -1,0 +1,88 @@
+@startuml SmartFleet_Workflow
+!theme plain
+skinparam actorStyle awesome
+
+actor Chauffeur as CH
+actor "Équipe Parc/Flotte" as PF
+participant "Système\nSmart Fleet ID" as SYS
+database "Base de\nDonnées" as DB
+actor "Responsable\nSupport (RS)" as RS
+actor "Équipe\nMaintenance" as MT
+actor "Admin /\nDirection" as AD
+
+== Étape 1 : Scan ou choix du véhicule ==
+CH -> SYS: Scanne QR Code ou choisit véhicule
+SYS -> DB: Vérifie immatriculation
+DB --> SYS: Véhicule identifié
+SYS --> CH: Affiche fiche véhicule (sans saisie manuelle)
+
+== Étape 2 : Checklist chauffeur avec emojis ==
+CH -> SYS: Remplit checklist dynamique
+note right
+  ⬛ Pneus : ✅ ou ❌
+  🛑 Freins : ✅ ou ❌
+  💡 Feux : ✅ ou ❌
+  🧯 Extincteur : ✅ ou ❌
+  📄 Documents : ✅ ou ❌
+end note
+SYS -> DB: Enregistre rapport checklist
+DB --> SYS: Rapport sauvegardé
+SYS --> CH: ✅ Rapport visuel enregistré
+
+== Étape 3 : Importation documents légaux (OCR) ==
+PF -> SYS: Importe document (carte grise, assurance, ONSSA)
+SYS -> SYS: OCR - Extraction automatique
+note right
+  Attributs extraits :
+  numéro, date expiration,
+  propriétaire
+end note
+SYS -> DB: Rattache document au véhicule (immatriculation)
+DB --> SYS: Document validé
+SYS --> PF: ✅ Document importé + tableau code couleur
+note right
+  Vert = Valide
+  Orange = Bientôt expiré
+  Rouge = Expiré
+end note
+
+== Étape 4 : Comparaison automatique ==
+SYS -> DB: Récupère checklist + documents
+DB --> SYS: Données physiques & administratives
+SYS -> SYS: Compare présence physique vs validité admin
+
+alt ✅ Présent + ✅ Valide
+    SYS --> AD: Conforme
+else ❌ Absent + ✅ Valide
+    SYS -> RS: ⚠️ Alerte : chauffeur oublie document
+    SYS -> DB: Génère alerte
+else ✅ Présent + ❌ Expiré
+    SYS -> RS: 🔴 Alerte critique : document périmé
+    SYS -> DB: Génère alerte critique
+else ❌ Absent + ❌ Expiré
+    SYS -> DB: 🚫 Bloque véhicule
+    SYS -> AD: Véhicule bloqué
+    SYS -> RS: Alerte blocage
+end
+
+== Étape 5 : Analyse & alertes ==
+SYS -> SYS: Calcule indice qualité véhicule
+SYS -> DB: Met à jour dashboard
+RS -> SYS: Reçoit alertes, valide anomalies
+SYS --> RS: Anomalies validées
+RS -> MT: Assigne maintenance
+
+== Étape 6 : Maintenance ==
+MT -> SYS: Répare véhicule
+SYS -> DB: Met à jour statut (réparé/non réparé)
+DB --> SYS: Intervention historisée
+
+== Étape 7 : Dashboard & Reporting ==
+AD -> SYS: Consulte dashboard global
+SYS --> AD: Vue globale code couleur + KPI
+AD -> SYS: Exporte rapport Excel/PDF
+SYS --> AD: Rapport exporté
+AD -> SYS: Reçoit recommandations IA
+SYS --> AD: Recommandations stratégiques
+
+@enduml

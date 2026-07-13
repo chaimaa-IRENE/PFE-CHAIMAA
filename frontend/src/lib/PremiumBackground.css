@@ -1,0 +1,81 @@
+.premium-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.premium-bg > * {
+  pointer-events: none;
+}
+
+.premium-bg__content {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  min-height: 100vh;
+}
+
+.premium-bg__aurora {
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  background-size: 200% 200%;
+  will-change: transform, opacity;
+}
+
+.premium-bg__rays {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.premium-bg__ray {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    135deg,
+    rgba(37, 99, 235, 0.08) 0%,
+    transparent 40%,
+    rgba(16, 185, 129, 0.04) 60%,
+    transparent 100%
+  );
+  will-change: transform;
+}
+
+.premium-bg__particles {
+  position: absolute;
+  inset: 0;
+}
+
+.premium-bg__particle {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform, opacity;
+}
+
+.premium-bg__bokeh {
+  position: absolute;
+  inset: 0;
+  filter: blur(60px);
+}
+
+.premium-bg__bokeh-circle {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .premium-bg__aurora,
+  .premium-bg__rays,
+  .premium-bg__particle,
+  .premium-bg__bokeh-circle {
+    animation: none !important;
+  }
+}

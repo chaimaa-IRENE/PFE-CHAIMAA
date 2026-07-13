@@ -1,0 +1,75 @@
+@startuml SmartFleet_UseCases
+!theme plain
+left to right direction
+skinparam actorStyle awesome
+
+actor Chauffeur as CH
+actor "Équipe Parc/\nFlotte" as PF
+actor "Responsable\nSupport (RS)" as RS
+actor Managers as MG
+actor "Équipe\nMaintenance" as MT
+actor "Admin /\nDirection" as AD
+
+rectangle "Smart Fleet ID System" {
+  usecase "Scanner QR Code\ncollé sur camion" as UC1
+  usecase "Choisir véhicule\ndans liste" as UC2
+  usecase "Remplir checklist\ndynamique (emojis)" as UC3
+  usecase "Déclarer anomalies\n+ preuves" as UC4
+  usecase "Importer documents\nvia OCR" as UC5
+  usecase "Valider données\nOCR extraites" as UC6
+  usecase "Comparer checklist\nvs documents" as UC7
+  usecase "Générer alertes\nautomatiques" as UC8
+  usecase "Bloquer véhicule\nsi absent + expiré" as UC9
+  usecase "Débloquer\nvéhicule" as UC10
+  usecase "Consulter\ndashboard" as UC11
+  usecase "Recevoir & valider\nalertes" as UC12
+  usecase "Assigner\nmaintenance" as UC13
+  usecase "Réparer véhicule\n+ mise à jour statut" as UC14
+  usecase "Exporter rapports\nExcel / PDF" as UC15
+  usecase "Recevoir\nrecommandations IA" as UC16
+  usecase "Gérer utilisateurs\n& configuration" as UC17
+  usecase "Calculer indice\nqualité véhicule" as UC18
+  usecase "Tableau code\ncouleur docs" as UC19
+}
+
+' Chauffeur
+CH --> UC1
+CH --> UC2
+CH --> UC3
+CH --> UC4
+
+' Équipe Parc / Flotte
+PF --> UC5
+PF --> UC6
+PF --> UC19
+
+' Responsable Support
+RS --> UC12
+RS --> UC13
+
+' Managers
+MG --> UC11
+MG --> UC12
+
+' Équipe Maintenance
+MT --> UC14
+
+' Admin / Direction
+AD --> UC11
+AD --> UC15
+AD --> UC16
+AD --> UC17
+AD --> UC9
+AD --> UC10
+
+' Relations système
+UC3 .> UC7 : "inclut pour\ncomparaison"
+UC5 .> UC6 : "inclut"
+UC7 .> UC8 : "étend"
+UC8 .> UC9 : "étend si\nbloquant"
+UC7 .> UC18 : "étend\n(indice qualité)"
+UC8 .> UC12 : "étend\n(notification RS)"
+UC9 .> UC10 : "inclut\n(déblocage)"
+UC14 .> UC9 : "étend\n(déblocage après\nréparation)"
+
+@enduml

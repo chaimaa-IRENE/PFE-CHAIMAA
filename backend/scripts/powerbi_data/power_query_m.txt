@@ -1,0 +1,16 @@
+// Power Query M - Power BI DirectQuery / Import
+// Use: Home > Get Data > Blank Query > Advanced Editor
+let
+    CsvFile = (name) => Csv.Document(
+        File.Contents("C:\\YourPath\\powerbi_data\\" & name & ".csv"),
+        [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]
+    ),
+    Vehicles = Table.PromoteHeaders(CsvFile("vehicles"), [PromoteAllScalars=true]),
+    Drivers  = Table.PromoteHeaders(CsvFile("drivers"),  [PromoteAllScalars=true]),
+    Trips    = Table.PromoteHeaders(CsvFile("trips"),    [PromoteAllScalars=true]),
+    Status   = Table.PromoteHeaders(CsvFile("ivms_status"), [PromoteAllScalars=true]),
+    Alerts   = Table.PromoteHeaders(CsvFile("ivms_alerts"), [PromoteAllScalars=true]),
+    Maint    = Table.PromoteHeaders(CsvFile("maintenance_events"), [PromoteAllScalars=true]),
+    KPI      = Table.PromoteHeaders(CsvFile("kpi_vehicules"), [PromoteAllScalars=true])
+in
+    KPI

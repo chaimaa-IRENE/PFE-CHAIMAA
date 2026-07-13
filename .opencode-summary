@@ -1,0 +1,89 @@
+## Goal
+- Complete overhaul of the "Gestion des Documents Véhicules" module + enrich vehicle history + transform Power BI for real data with multi-source fetching, auto-refresh, comprehensive filters, and AI
+
+## Constraints & Preferences
+- Replace all hardcoded `http://localhost:8080` URLs with relative proxy paths
+- Use `Promise.all` with `.catch()` fallbacks
+- Fetch block/unblock info from 5 data sources in priority order
+- Iterate all blocage entries field-by-field (backend may not set `bloque` boolean)
+- Use `fmtDate()` helper for string dates, array dates `[y,mo,d,h,mi]`, and null
+- Use `as any` on axios `res.data` to fix TS18046 (unknown type)
+- Match existing code patterns: `framer-motion` animations, recharts, lucide-react icons
+
+## Progress
+### Done
+- **FleetDocumentManager.tsx** (~1043 lines): dashboard tab (stats + compliance bar + blocked vehicles), documents tab (search + filters + table), notifications tab (expiry groups + "Expirés — Re-créer" section), add/edit modal, detail modal, status auto-calculation
+- **Proxy config**: `/uploads` and `/admin` routes in `setupProxy.js`
+- **API URLs fixed**: all `http://localhost:8080` in FleetDocumentManager.tsx and ModernResponsableSupportDashboard.tsx → relative proxy paths
+- **Response parsing unified**: handles `res.data` as array or wrapped object with `Array.isArray` + fallback
+- **fetchVehicleHistory rewritten**: 4 parallel calls (history + documents + declarations + blocked-vehicules), enriches `blocageInfo` from 5 sources
+- **Blocage extraction robust**: iterates all `blocages` entries field-by-field, last non-null wins
+- **Notifications**: expired docs in dedicated "Expirés" section with "Re-créer" badge
+- **Idea 3 — Predictive health card** in `VehicleDetail.tsx`: AI-weighted score (history 40% + documents 25% + checkups 20% + driver 15%), risk badge, `POST /api/ai/predict/vehicle/{id}` with local fallback
+- **Idea 5 — AI report** in `ExecutiveDashboard.tsx`: button + modal calling `POST /api/ai/summarize` with KPIs, Markdown display, regenerate
+- **TypeScript fixes**: `as File[]` cast, `: any` on `rawDocs`, `res.data as any` for axios unknown type
+- **Power BI types enriched**: 22 new interfaces (Indicateurs, BudgetPoint, BudgetInfo, InterventionRow, PrestataireRow, DocumentStats, VehicleScoreRow, DriverPerfRow, AiInsight, EnrichedFilters) + 23 new optional KPI fields (totalPrestataires, budgetConsomme/Total/Restant, documentsExpires/BientotExpire, coutTotalMaintenance, tauxDisponibilite, declarationsAujourdhui/CetteSemaine/CeMois, interventionsTerminees/EnCours/EnRetard, vehiculesDisponibles, tauxResolution, checkupsNonConformes)
+- **index.tsx rewritten**: fetches 10 parallel API endpoints (v4 dashboard + indicateurs + interventions + budget + blocked + documents + scores + drivers + AI insights), merges all into enriched DashboardData, auto-refresh 30s interval + visibilitychange + focus events, 12-filter panel (site, vehicle, driver, status, criticite, typePanne, region, prestataire, ville, annee, mois)
+- **ExecutiveDashboard.tsx rewritten**: 13 base KPIs + 14 conditional enriched KPIs, budget vs real bar chart, documents par type + valides/expirés/<30j counters, prestataire interventions bars, AI Insights section with impact/tendance/recommandation, all original sections preserved (donuts, gauge, histogram, monthly comparison, evolution, top 10, alerts, AI Report modal)
+- **Test data seeder**: `TestDataSeeder.java` — generates 50 vehicles, 80 drivers, 15 prestataires, 500 declarations, 600 checklists, 400 documents, budget data
+- **Backend unit tests**: `DeclarationServiceTest.java` (10 tests — CRUD, SLA, criticité, périmètres, coûts), `VehiculeServiceTest.java` (8 tests — conformité, blocage, disponibilité, kilométrage, agence)
+- **Backend controller tests**: `PowerBiAnalyticsControllerTest.java` (10 tests — all 10 endpoints with MockMvc), `SmartFleetDashboardV2ControllerTest.java` (3 tests — dashboard + filters)
+- **Backend integration test**: `PowerBiDashboardIntegrationTest.java` — full Spring Boot test with real H2, seeds data, tests all 7 Power BI endpoints end-to-end
+- **Frontend tests**: `ExecutiveDashboard.test.tsx` (7 tests — KPIs, sections, AI insights, empty data), `PowerBiDashboard.test.tsx` (5 tests — loading, data, filters, errors, parallel calls), `VehicleDetail.test.tsx` (5 tests — list, search, scores, empty, status)
+- **Test runner**: `scripts/run-tests.js` — runs backend (mvn test) + frontend (react-scripts test --watchAll=false), generates HTML report in `test-reports/index.html`
+- **Test mocks**: `__mocks__/axios.ts`, `__mocks__/framer-motion.ts`, test application.properties (H2 in-memory)
+
+### In Progress
+- **(none)**
+
+### Blocked
+- `npx tsc --noEmit` fails with ENOSPC (no disk space on C:) — cannot run type-check; manual brace balance verified (index.tsx: 270/270, ExecutiveDashboard.tsx: 628/628)
+- Backend blocage data may lack `dateBlocage`, `raison`, `bloquePar` in unblock entries
+- Backend tests may fail if models lack required getters/setters or field names differ — verify and adjust
+
+## Key Decisions
+- Single `setVehicleHistory({...data, ...computed})` to flatten all enriched fields into one state object
+- Source 1 (blocked-vehicules) checked first for current blocks; sources 2-5 fall back for unblocked vehicles
+- Expired docs shown in separate "Re-créer" section above delay-based notification groups
+- Write tool corrupted two files (index.tsx, ExecutiveDashboard.tsx) → restored via PowerShell Write tool
+- All new API calls use relative `/api/...` paths (proxy handles routing to `localhost:8080`)
+- `@WebMvcTest` used for controller tests (focused slice, fast), `@SpringBootTest` for integration (full context, H2)
+- Test data seeder is a `@Component` for `@Autowired` injection into tests; uses `Random(42)` for reproducibility
+
+## Next Steps
+1. **Run tests**: `node scripts/run-tests.js` (ensure disk space available first)
+2. **If backend tests fail**: check model field names match TestDataSeeder calls; add missing getters/setters
+3. **If frontend tests fail**: adjust component mocks if rendering structure differs; check import paths
+4. **Add more tests**: BudgetTrimestrielServiceTest, AnomalieCheckupServiceTest, FleetDocumentManager component test
+5. **CI integration**: add GitHub Actions workflow that runs tests on push/PR
+
+## Critical Context
+- Backend endpoints: `/api/vehicles/{id}/history`, `/api/documents-vehicule`, `/api/declarations`, `/api/fleet/checklist/blocked-vehicules`, `/api/powerbi/v4/smart-fleet-dashboard`, `/api/powerbi/indicateurs`, `/api/powerbi/stats-interventions`, `/api/powerbi/budget-analysis`, `/api/budget/active`, `/api/fleet/kpi/documents-stats`, `/api/powerbi/score-camions`, `/api/powerbi/performance-chauffeurs`, `/api/powerbi/v2/ai-insights`
+- AI endpoints expected but may not exist on backend: `POST /api/ai/predict/vehicle/{id}`, `POST /api/ai/summarize`
+- Test runner command: `node scripts/run-tests.js`
+- Backend test command: `mvn test -Dspring.profiles.active=test` (from `backend/`)
+- Frontend test command: `npx react-scripts test --watchAll=false --ci` (from `frontend/`)
+- Test report: `test-reports/index.html` (opened in browser)
+- HMR "___WEBPACK_DEFAULT_EXPORT___" error requires full browser refresh (Ctrl+F5)
+- No disk space on C: — free space before running backend tests (Maven downloads deps)
+
+## Relevant Files
+- `frontend/src/components/FleetDocumentManager.tsx`: full doc management + notification + "Re-créer" section
+- `frontend/src/components/ModernResponsableSupportDashboard.tsx`: vehicle history with enriched fetch + 5-source blocage
+- `frontend/src/components/PowerBiDashboard/types.ts`: 22 new interfaces, 23 enriched KPI fields
+- `frontend/src/components/PowerBiDashboard/index.tsx`: multi-source data hub with 10 parallel fetches, auto-refresh, 12 filters
+- `frontend/src/components/PowerBiDashboard/ExecutiveDashboard.tsx`: full dashboard with all KPIs, budget, prestataires, documents, AI insights, AI Report modal
+- `frontend/src/components/PowerBiDashboard/VehicleDetail.tsx`: predictive health card with local score + IA analysis
+- `backend/src/test/java/com/example/usermanagement/util/TestDataSeeder.java`: generates realistic test data
+- `backend/src/test/java/com/example/usermanagement/service/DeclarationServiceTest.java`: 10 unit tests
+- `backend/src/test/java/com/example/usermanagement/service/VehiculeServiceTest.java`: 8 unit tests
+- `backend/src/test/java/com/example/usermanagement/controller/PowerBiAnalyticsControllerTest.java`: 10 controller tests
+- `backend/src/test/java/com/example/usermanagement/controller/SmartFleetDashboardV2ControllerTest.java`: 3 controller tests
+- `backend/src/test/java/com/example/usermanagement/integration/PowerBiDashboardIntegrationTest.java`: full integration test
+- `frontend/src/components/PowerBiDashboard/ExecutiveDashboard.test.tsx`: 7 component tests
+- `frontend/src/components/PowerBiDashboard/PowerBiDashboard.test.tsx`: 5 component tests
+- `frontend/src/components/PowerBiDashboard/VehicleDetail.test.tsx`: 5 component tests
+- `scripts/run-tests.js`: test runner with HTML report
+- `backend/src/test/resources/application-test.properties`: H2 in-memory config
+- `frontend/src/__mocks__/axios.ts`: manual axios mock
+- `frontend/src/__mocks__/framer-motion.ts`: manual framer-motion mock
