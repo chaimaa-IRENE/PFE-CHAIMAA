@@ -1,5 +1,6 @@
 @echo off
-cd /d C:\Users\EmsiC\Desktop\mon-projet-extraction\frontend
+cd /d %~dp0
 set PORT=3000
 set HOST=0.0.0.0
-npm start > frontend_new.log 2> frontend_new_err.log
+start "SmartFleet Frontend" /MIN npm start
+echo Frontend demarre sur http://localhost:3000

@@ -1,2 +1,4 @@
 @echo off
-start /B "backend" java -jar "C:\Users\EmsiC\Desktop\mon-projet-extraction\backend\target\user-management-0.0.1-SNAPSHOT.jar" > backend.log 2>&1
+set MAVEN_HOME=C:\Users\moutaoch\Downloads\apache-maven-3.9.15-bin\apache-maven-3.9.15
+start "SmartFleet Backend" /MIN cmd /c "cd /d %~dp0backend && %MAVEN_HOME%\bin\mvn.cmd spring-boot:run"
+echo Backend demarre sur http://localhost:8080
