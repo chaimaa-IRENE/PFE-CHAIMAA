@@ -40,64 +40,239 @@
 
 ### 0.1 Vérifier les prérequis
 
+Ouvrir **un terminal PowerShell** et exécuter chaque commande :
+
 ```powershell
-# Terminal PowerShell (Administrateur)
-java -version                          # Doit être 21+
-node --version                         # Doit être 18+
-python --version                       # Doit être 3.8+ (obligatoire pour le TTS vocal)
-pip install edge-tts                   # Moteur TTS (une seule fois)
-npm --version                          # Inclus avec Node.js
+# ── Java 21 (backend) ──
+java -version
+# Résultat attendu : openjdk version "21" 2023-09-19 LTS
+# Si introuvable : https://adoptium.net/ (Temurin 21 LTS)
+
+# ── Node.js 18+ (frontend) ──
+node --version
+# Résultat attendu : v18.x.x ou v20.x.x ou v22.x.x
+# npm est inclus automatiquement
+# Si introuvable : https://nodejs.org/ (v18 LTS minimum)
+
+# ── Python 3.8+ (TTS vocal) ──
+python --version
+# Résultat attendu : Python 3.10.x ou 3.11.x ou 3.12.x
+# Si "Python was not found" :
+#   1. Installer Python depuis https://www.python.org/downloads/
+#   2. Dans Paramètres Windows → Applications → Alias d'exécution d'application
+#      → Décocher "python.exe" et "python3.exe" (désactive le stub du Windows Store)
+#   3. Redémarrer le terminal
+
+# ── Maven 3.9+ (build backend) ──
+C:\Users\moutaoch\Downloads\apache-maven-3.9.15-bin\apache-maven-3.9.15\bin\mvn.cmd --version
+# Résultat attendu : Apache Maven 3.9.x
+# Si introuvable : télécharger depuis https://maven.apache.org/download.cgi
 ```
 
-### 0.2 Lancer les 3 serveurs
+#### 0.1.1 Installer edge-tts (une seule fois)
 
 ```powershell
-# 1. Backend Spring Boot (port 8080)
-Set-Location backend
-C:\Users\moutaoch\Downloads\apache-maven-3.9.15-bin\apache-maven-3.9.15\bin\mvn.cmd spring-boot:run
-# Attendre ~50s : "Started UserManagementApplication"
+# Moteur de synthèse vocale (obligatoire pour l'agent vocal)
+python -m pip install edge-tts
+# Résultat : Successfully installed edge-tts-7.2.8 ...
 
-# 2. Frontend React (port 3000) — DANS UN AUTRE TERMINAL
+# Vérifier l'installation
+python -c "import edge_tts; print('edge-tts OK')"
+# Résultat : edge-tts OK
+```
+
+#### 0.1.2 Installer les dépendances frontend (une seule fois)
+
+```powershell
 Set-Location frontend
-npm install --legacy-peer-deps   # Une seule fois
-npm start
+npm install --legacy-peer-deps
+# Résultat : added XXXX packages in Y seconds
+Set-Location ..
+```
 
-# 3. Serveur TTS Python (port 5000) — DANS UN AUTRE TERMINAL (OPTIONNEL)
-# Le TTS fonctionne aussi via le backend (plus simple, pas besoin de ce serveur)
+> **⚠️ Important SSL :** Si edge-tts échoue avec une erreur `CERTIFICATE_VERIFY_FAILED`,
+> le script `backend/tts_temp/tts_server.py` désactive automatiquement la vérification SSL
+> via `edge_comm._SSL_CTX.verify_mode = ssl.CERT_NONE`.
+> Voir section [9.6](#96-le-tts-voix-ne-fonctionne-pas) point 6 pour le diagnostic complet.
+
+### 0.2 Lancer les serveurs (ordre à respecter)
+
+> **Important :** Lancer chaque serveur dans **un terminal PowerShell séparé**.
+
+```powershell
+# ════════════════════════════════════════════════════════════
+# TERMINAL 1 — Backend Spring Boot (port 8080)
+# ════════════════════════════════════════════════════════════
+Set-Location "C:\Users\moutaoch\Downloads\mon-projet-extraction (2)\mon-projet-extraction\backend"
+
+# Lancer le backend
+C:\Users\moutaoch\Downloads\apache-maven-3.9.15-bin\apache-maven-3.9.15\bin\mvn.cmd spring-boot:run
+
+# Attendre ~50 secondes. Le démarrage est terminé quand vous voyez :
+#   "Started UserManagementApplication in XX seconds"
+#   "Tomcat started on port 8080"
+```
+
+```powershell
+# ════════════════════════════════════════════════════════════
+# TERMINAL 2 — Frontend React (port 3000)
+# ════════════════════════════════════════════════════════════
+Set-Location "C:\Users\moutaoch\Downloads\mon-projet-extraction (2)\mon-projet-extraction\frontend"
+
+# Lancer le frontend (dev server)
+npm start
+# Résultat attendu dans les 30 secondes :
+#   "Compiled successfully!"
+#   "Local: http://localhost:3000"
+```
+
+```powershell
+# ════════════════════════════════════════════════════════════
+# TERMINAL 3 — Serveur TTS Python (port 5000) — OPTIONNEL
+# ════════════════════════════════════════════════════════════
+# Note : Le TTS fonctionne aussi via le backend (architecture par défaut).
+# Ce serveur supplémentaire n'est nécessaire que si vous voulez
+# une architecture dédiée (TTS_BASE = "/tts" dans api.ts).
 python backend/tts_temp/tts_http_server.py 5000
 ```
 
-### 0.3 Accéder à l'application
+### 0.3 Vérifier que les serveurs tournent
+
+```powershell
+# ── Vérifier les processus ──
+Get-Process -Name java, node, python -ErrorAction SilentlyContinue |
+  Select-Object Id, ProcessName, @{N="Port";E={...}} -Unique
+
+# ── Vérifier les ports ──
+netstat -ano | Select-String ":8080 |:3000 |:5000 "
+# 8080 → Backend Spring Boot (java)
+# 3000 → Frontend React (node)
+# 5000 → TTS HTTP (python, optionnel)
+
+# ── Tester l'API backend ──
+Invoke-RestMethod -Uri "http://localhost:8080/users/login" -Method Post `
+  -Headers @{"Content-Type"="application/json"} `
+  -Body '{"username":"admin","password":"admin123"}'
+# Résultat : {"token":"eyJ...","role":"ADMIN","username":"admin","id":1}
+
+# ── Tester le frontend ──
+Invoke-WebRequest -Uri "http://localhost:3000" -UseBasicParsing
+# Résultat : StatusCode 200 (page HTML)
+```
+
+### 0.4 Accéder à l'application
 
 | URL | Service |
 |-----|---------|
 | `http://localhost:3000` | Interface utilisateur (Frontend React) |
 | `http://localhost:8080` | API REST (Backend Spring Boot) |
+| `http://localhost:8080/swagger-ui.html` | Documentation API (si Swagger est configuré) |
+| `http://localhost:8080/h2-console` | Console H2 (uniquement si profil `h2`) |
 
-### 0.4 Comptes de test
+### 0.5 Test du TTS (synthèse vocale)
 
-| Login | Mot de passe | Rôle |
-|-------|-------------|------|
-| `admin` | `admin123` | Administrateur |
-| `chauffeur_casa` | `driver123` | Chauffeur (4 véhicules assignés) |
-| `rs_support` | `support123` | Responsable Support |
-
-### 0.5 Test rapide de l'agent vocal
+#### Option A : Test direct via Python CLI
 
 ```powershell
-# 1. Démarrer une session
+# Exécute edge-tts directement (sans backend)
+python "C:\Users\moutaoch\Downloads\mon-projet-extraction (2)\mon-projet-extraction\backend\tts_temp\tts_server.py" `
+  "salam test" "ar-MA-JamalNeural" "-5pct"
+# Résultat OK : {"status":"ok","path":"...tts_cache/xxxx.mp3"}
+# Résultat ERREUR SSL : {"status":"error","error":"[SSL: CERTIFICATE_VERIFY_FAILED]..."}
+#   → Voir 0.1.2 (patch SSL automatique dans tts_server.py)
+
+# Vérifier que le MP3 généré a une taille > 0
+Get-Item "C:\Users\moutaoch\Downloads\mon-projet-extraction (2)\mon-projet-extraction\backend\tts_temp\tts_cache\*.mp3" |
+  Select-Object Name, Length | Sort-Object LastWriteTime -Descending | Select-Object -First 3
+# Chaque fichier doit faire au moins 5 KB (5000+ octets). Si 0 → SSL bloqué.
+```
+
+#### Option B : Test via l'API backend
+
+```powershell
+# Le backend appelle le script Python et retourne le MP3
+Invoke-WebRequest -Uri "http://localhost:8080/api/tts/speak?text=salam&voice=ar-MA-JamalNeural&rate=-5pct" `
+  -OutFile "$env:TEMP\tts_test_backend.mp3" -TimeoutSec 60
+$f = Get-Item "$env:TEMP\tts_test_backend.mp3"
+Write-Host "Taille: $($f.Length) octets"
+Write-Host "OK si taille > 5000, ERREUR si taille = 0"
+
+# Vérifier que c'est un vrai MP3 (entête valide)
+$bytes = [System.IO.File]::ReadAllBytes($f.FullName)
+if ($bytes[0] -eq 0xFF -and ($bytes[1] -band 0xE0) -eq 0xE0) {
+  Write-Host "Format MP3: VALIDE (sync byte trouvé)"
+} else {
+  Write-Host "Format MP3: INVALIDE"
+}
+```
+
+#### Option C : Test via le frontend proxy
+
+```powershell
+# Passe par le proxy CRA (setupProxy.js) → backend → Python
+Invoke-WebRequest -Uri "http://localhost:3000/api/tts/speak?text=salam&voice=ar-MA-JamalNeural&rate=-5pct" `
+  -OutFile "$env:TEMP\tts_test_frontend.mp3" -TimeoutSec 60
+$f = Get-Item "$env:TEMP\tts_test_frontend.mp3"
+Write-Host "Taille: $($f.Length) octets (identique à option B si tout fonctionne)"
+```
+
+#### Option D : Nettoyage du cache TTS
+
+```powershell
+# Supprimer TOUS les fichiers MP3 du cache (force la régénération)
+Remove-Item "C:\Users\moutaoch\Downloads\mon-projet-extraction (2)\mon-projet-extraction\backend\tts_temp\tts_cache\*.mp3"
+
+# Ou supprimer uniquement les fichiers vides (0 octets)
+Get-ChildItem "C:\Users\moutaoch\Downloads\mon-projet-extraction (2)\mon-projet-extraction\backend\tts_temp\tts_cache" |
+  Where-Object { $_.Length -eq 0 } | Remove-Item
+```
+
+### 0.6 Test de l'agent vocal complet
+
+```powershell
+# ── 1. Démarrer une session (greeting) ──
 $headers = @{ "Content-Type" = "application/json" }
 $body = '{ "chauffeurId": 2, "chauffeurNom": "Hicham", "chauffeurMatricule": "CH-001" }'
 $session = Invoke-RestMethod -Uri "http://localhost:8080/api/voice-agent/start" `
   -Method Post -Headers $headers -Body $body
-Write-Host "Session: $($session.sessionId) - Step: $($session.step)"
+Write-Host "Session ID : $($session.sessionId)"
+Write-Host "Step : $($session.step)"
+Write-Host "Question FR : $($session.questionFrancais)"
+Write-Host "Question AR : $($session.questionArabic)"
 
-# 2. Répondre "oui" au greeting
+# ── 2. Répondre "oui" au greeting (step 1 → step 2) ──
 $respondBody = "{ `"sessionId`": `"$($session.sessionId)`", `"step`": 1, `"response`": `"oui`" }"
 $step2 = Invoke-RestMethod -Uri "http://localhost:8080/api/voice-agent/respond" `
   -Method Post -Headers $headers -Body $respondBody
-Write-Host "Step 2: $($step2.field) - Véhicules: $($step2.choices.Count)"
+Write-Host "Step 2 : $($step2.field)"
+Write-Host "Question FR : $($step2.questionFrancais)"
+Write-Host "Choix disponibles : $($step2.choices.Count)"
+foreach ($c in $step2.choices) {
+  Write-Host "  $($c.id) - $($c.label_fr)"
+}
+
+# ── 3. Choisir un véhicule (step 2 → step 3) ──
+$respondBody2 = "{ `"sessionId`": `"$($session.sessionId)`", `"step`": 2, `"response`": `"1`" }"
+$step3 = Invoke-RestMethod -Uri "http://localhost:8080/api/voice-agent/respond" `
+  -Method Post -Headers $headers -Body $respondBody2
+Write-Host "Step 3 : $($step3.field)"
+Write-Host "Question FR : $($step3.questionFrancais)"
 ```
+
+### 0.7 Résumé des commandes essentielles
+
+| Action | Commande | Où l'exécuter |
+|--------|----------|---------------|
+| Démarrer backend | `cd backend && mvn spring-boot:run` | Terminal 1 |
+| Démarrer frontend | `cd frontend && npm start` | Terminal 2 |
+| Tester TTS (backend) | `curl "http://localhost:8080/api/tts/speak?text=test&rate=-5pct"` | N'importe où |
+| Tester TTS (Python) | `python backend/tts_temp/tts_server.py "test" "ar-MA-JamalNeural" "-5pct"` | Terminal 3 |
+| Vider cache TTS | `del backend\tts_temp\tts_cache\*.mp3` | N'importe où |
+| Vérifier port 8080 | `netstat -ano \| findstr :8080` | N'importe où |
+| Login API | `curl -X POST http://localhost:8080/users/login -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"admin123\"}"` | N'importe où |
+| Login chauffeur | `chauffeur_casa` / `driver123` | Navigateur |
+| Login admin | `admin` / `admin123` | Navigateur |
+| Login RS | `rs_support` / `support123` | Navigateur |
 
 ---
 
@@ -678,7 +853,39 @@ del backend\data\driverhub.trace.db
    ```
    (Ne pas confondre avec `ia/tts_server.py` qui est un serveur Flask, pas la CLI)
 
-### 9.7 Erreurs TypeScript au build frontend
+6. **Erreur SSL — CERTIFICATE_VERIFY_FAILED** (message dans la console backend ou Python) :
+
+   **Cause :** Sur certains réseaux (proxy d'entreprise, antivirus), la vérification SSL du certificat de `speech.platform.bing.com` échoue.
+
+   **Symptôme :** Le fichier MP3 généré fait **0 octet** (cache vide/corrompu). Le navigateur ne peut rien lire.
+
+   **Solution :** Le script `backend/tts_temp/tts_server.py` patche automatiquement la vérification SSL. Si le problème persiste, vérifier que les lignes suivantes sont présentes au début du fichier :
+   ```python
+   import ssl
+   import edge_tts.communicate as edge_comm
+   # Désactiver la vérification SSL
+   edge_comm._SSL_CTX.check_hostname = False
+   edge_comm._SSL_CTX.verify_mode = ssl.CERT_NONE
+   ```
+
+7. **Cache TTS corrompu (0 octet) :** Si un fichier MP3 vide a été créé, le supprimer pour forcer sa régénération :
+   ```cmd
+   del backend\tts_temp\tts_cache\*.mp3
+   ```
+   > Ne supprimez que les fichiers de **0 octet** si certains MP3 précédents fonctionnaient encore.
+
+### 9.7 Agent vocal bloqué — pas de son après autoplay
+
+**Symptôme :** L'agent semble parler (animation "Parle en cours") mais aucun son ne sort. Un bandeau jaune "Cliquez pour activer la voix" peut apparaître.
+
+**Cause :** Les navigateurs modernes (Chrome, Edge) bloquent l'autoplay audio. L'utilisateur doit **cliquer une fois** sur l'interface pour autoriser la lecture audio.
+
+**Solutions :**
+1. Cliquer sur le bandeau jaune **"Cliquez pour activer la voix"** en bas de l'écran
+2. Cliquer n'importe où dans la zone de l'agent vocal
+3. Vérifier que l'icône 🔊 (haut à droite) n'est pas barrée (mode muet)
+
+### 9.8 Erreurs TypeScript au build frontend
 
 **Symptôme :** `TS2802: Type 'Set<string>' can only be iterated through when using '--downlevelIteration'`
 
@@ -930,13 +1137,26 @@ Serveur TTS Python (backend/tts_temp/tts_http_server.py)
 
 | Propriété | Valeur |
 |-----------|--------|
-| Moteur | `edge-tts` (Microsoft Edge TTS) |
+| Moteur | `edge-tts` 7.2.8 (Microsoft Edge TTS) |
 | Voix par défaut | `ar-MA-JamalNeural` (Arabe marocain) |
-| Débit | `-5%` (ralenti pour meilleure compréhension) |
+| Débit | `-5pct` (ralenti → `-5%` après conversion dans le script) |
 | Format | MP3 (audio/mpeg) |
 | Cache | MD5 du texte + voix → fichier MP3 dans `backend/tts_temp/tts_cache/` |
 | Endpoint backend | `GET /api/tts/speak?text=...&voice=...&rate=...` |
 | Endpoint Python | `GET /api/tts/speak` (sur port 5000) |
+
+**🔧 Correctif SSL connu :**
+
+Sur certains réseaux (proxy d'entreprise, antivirus), la connexion de `edge-tts` à `speech.platform.bing.com` échoue avec une erreur `CERTIFICATE_VERIFY_FAILED`. Le script `backend/tts_temp/tts_server.py` applique automatiquement ce patch au démarrage :
+
+```python
+import ssl
+import edge_tts.communicate as edge_comm
+edge_comm._SSL_CTX.check_hostname = False
+edge_comm._SSL_CTX.verify_mode = ssl.CERT_NONE
+```
+
+**Symptôme du problème SSL :** Le fichier MP3 généré fait **0 octet** (pas d'audio). Voir [Dépannage 9.6](#96-le-tts-voix-ne-fonctionne-pas) pour supprimer le cache corrompu.
 
 ### 11.6 Service STT (Speech-to-Text)
 
@@ -976,6 +1196,32 @@ python -m pip install edge-tts
 python -c "import edge_tts; print('OK')"
 ```
 
+#### Patch SSL (indispensable sur certains réseaux)
+
+Le script `backend/tts_temp/tts_server.py` désactive automatiquement la vérification SSL
+pour `edge-tts` via ce patch au démarrage :
+
+```python
+# Dans backend/tts_temp/tts_server.py (déjà présent, ne pas modifier)
+import ssl
+import edge_tts.communicate as edge_comm
+edge_comm._SSL_CTX.check_hostname = False
+edge_comm._SSL_CTX.verify_mode = ssl.CERT_NONE
+```
+
+> **⚠️ Ne pas supprimer ces lignes.** Sans ce patch, la génération TTS échoue
+> avec une erreur `CERTIFICATE_VERIFY_FAILED` sur certains réseaux,
+> et le fichier MP3 produit fait 0 octet.
+
+#### Vérification du patch SSL
+
+```powershell
+# Tester que edge-tts fonctionne (avec le patch)
+python backend/tts_temp/tts_server.py "test vocal" "ar-MA-JamalNeural" "-5pct"
+# Réponse attendue : {"status":"ok","path":"...cache/xxxx.mp3"}
+# Si statut "error" : vérifier le message d'erreur SSL
+```
+
 #### Configuration backend (déjà préconfigurée)
 
 Dans `backend/src/main/resources/application.properties` :
@@ -999,11 +1245,51 @@ tts.rate=-5pct
 # Via le backend (recommendé)
 curl "http://localhost:8080/api/tts/speak?text=salam&voice=ar-MA-JamalNeural&rate=-5pct" -o test.mp3
 # Vérifier : le fichier test.mp3 doit faire ~10KB et contenir l'audio
+# Si 0 octet → SSL bloqué (voir section Patch SSL ci-dessus)
 
 # Directement via Python
 python backend/tts_temp/tts_server.py "salam" "ar-MA-JamalNeural" "-5pct"
 # Résultat : {"status":"ok","path":"...tts_cache/xxxx.mp3"}
+# Si {"status":"error","error":"SSL:..."} → SSL bloqué
 ```
+
+#### Référence complète des commandes TTS
+
+| # | Action | Commande | Résultat OK | Résultat ERREUR |
+|---|--------|----------|-------------|-----------------|
+| 1 | **Tester Python** | `python --version` | `Python 3.10.x` | `Python was not found` → désactiver App aliases |
+| 2 | **Installer edge-tts** | `python -m pip install edge-tts` | `Successfully installed edge-tts-7.2.8` | `pip not found` → réparer Python |
+| 3 | **Vérifier edge-tts** | `python -c "import edge_tts; print('OK')"` | `OK` | `ModuleNotFoundError` → réinstaller |
+| 4 | **TTS via Python CLI** | `python backend/tts_temp/tts_server.py "salam" "ar-MA-JamalNeural" "-5pct"` | `{"status":"ok","path":"...mp3"}` | `{"status":"error","error":"SSL:..."}` → SSL bloqué |
+| 5 | **TTS via backend** | `Invoke-WebRequest -Uri "http://localhost:8080/api/tts/speak?text=salam&voice=ar-MA-JamalNeural&rate=-5pct" -OutFile test.mp3` | Taille > 5000 octets | Taille = 0 → SSL ou cache corrompu |
+| 6 | **TTS via frontend** | `Invoke-WebRequest -Uri "http://localhost:3000/api/tts/speak?text=salam&voice=ar-MA-JamalNeural&rate=-5pct" -OutFile test.mp3` | Taille > 5000 octets | Taille = 0 → proxy ou backend |
+| 7 | **Vérifier format MP3** | `$b = [System.IO.File]::ReadAllBytes("test.mp3"); $b[0] -eq 0xFF -and ($b[1] -band 0xE0) -eq 0xE0` | `True` | `False` → fichier corrompu |
+| 8 | **Vider cache TTS** | `Remove-Item "backend/tts_temp/tts_cache/*.mp3"` | Aucune erreur | Chemin introuvable |
+| 9 | **Vider caches vides** | `Get-ChildItem "backend/tts_temp/tts_cache" \| Where-Object Length -eq 0 \| Remove-Item` | Aucune erreur | Chemin introuvable |
+| 10 | **Tester agent vocal** | `Invoke-RestMethod -Uri "http://localhost:8080/api/voice-agent/start" -Method Post -Headers @{"Content-Type"="application/json"} -Body '{"chauffeurId":2,"chauffeurNom":"Hicham","chauffeurMatricule":"CH-001"}'` | `sessionId` + `step=1` | `404` → backend pas lancé |
+| 11 | **Vérifier port 8080** | `netstat -ano \| Select-String ":8080 "` | Ligne avec `LISTENING` | Rien → backend pas lancé |
+| 12 | **Vérifier port 3000** | `netstat -ano \| Select-String ":3000 "` | Ligne avec `LISTENING` | Rien → frontend pas lancé |
+| 13 | **Tuer processus 8080** | `taskkill /PID $(netstat -ano \| Select-String ":8080 " \| ForEach-Object { \$_.ToString().Split()[-1] }) /F` | `SUCCESS` | `not found` |
+| 14 | **Lire logs backend** | `Get-Content "backend/logs/*.log" -Tail 20` (ou la sortie du terminal 1) | Voir `Started UserManagementApplication` | Voir erreur Java |
+
+**Détail des codes d'erreur Python CLI (commande 4) :**
+
+| Status | Error | Cause | Solution |
+|--------|-------|-------|----------|
+| `ok` | (aucun) | Succès | ✅ |
+| `error` | `[SSL: CERTIFICATE_VERIFY_FAILED]` | Vérification SSL bloquée | Vérifier que `tts_server.py` contient le patch SSL (section 11.5) |
+| `error` | `No module named 'edge_tts'` | edge-tts non installé | `python -m pip install edge-tts` |
+| `error` | aucun message | Script introuvable | Vérifier le chemin : `dir backend\tts_temp\tts_server.py` |
+| `error` | `Invalid rate` | Format du débit invalide | Utiliser `-5pct` ou `-5%` |
+
+**Codes de retour du backend (commande 5) :**
+
+| Code HTTP | Signification | Cause |
+|-----------|---------------|-------|
+| `200` + MP3 | Succès | Le MP3 est joué normalement |
+| `200` + 0 octet | Cache corrompu | Le script Python a échoué mais le fichier existe (0 o). Vider le cache (commande 8) |
+| `500` | Erreur serveur | Python introuvable, script introuvable, ou edge-tts non installé |
+| `500` + `exit code 9009` | Python introuvable | `tts.python.path` incorrect dans `application.properties` |
 
 #### Configuration alternative : serveur HTTP Python
 
@@ -1144,4 +1430,4 @@ mon-projet-extraction/
 Pour toute question ou incident technique, veuillez contacter l'équipe de développement.
 
 ---
-*Document mis à jour le 13/07/2026 — Smart Fleet Management DriverHub v2.0*
+*Document mis à jour le 17/07/2026 — Smart Fleet Management DriverHub v2.0*

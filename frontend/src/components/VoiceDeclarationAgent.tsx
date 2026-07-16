@@ -114,13 +114,19 @@ function normalizeImmatriculation(raw: string): string {
   s = s.replace(/[\u0600-\u06FF]/g, c => AR_LETTER[c] || "");
   // 8) Remove separators (|, -, /, spaces) and uppercase
   s = s.replace(/[|\-\/\s]+/g, "").toUpperCase();
-  // 9) Extract Moroccan plate pattern: digits + letters + digits
-  const m = s.match(/^(\d+)([A-Z]+)(\d*)$/);
-  if (m) {
-    const [, d1, letters, d2] = m;
+  // 9) Extract Moroccan plate pattern: digits + letters + digits (old format: "12345 A 6")
+  const m1 = s.match(/^(\d+)([A-Z]+)(\d*)$/);
+  if (m1) {
+    const [, d1, letters, d2] = m1;
     return d2 ? `${d1}-${letters}-${d2}` : `${d1}-${letters}`;
   }
-  // 10) If no pattern, just clean it up
+  // 10) Extract Moroccan plate pattern: letters + digits + letters (new format: "AA 123 BC")
+  const m2 = s.match(/^([A-Z]+)(\d+)([A-Z]+)$/);
+  if (m2) {
+    const [, letters1, digits, letters2] = m2;
+    return `${letters1}-${digits}-${letters2}`;
+  }
+  // 11) If no pattern, just clean it up
   return s || raw.toUpperCase();
 }
 
@@ -627,10 +633,8 @@ export default function VoiceDeclarationAgent({ currentUser, onDeclarationCreate
     if (stopTtsRef.current) return;
     ttsRetryCountRef.current++;
     if (ttsRetryCountRef.current <= 1) {
-      // First error → retry once after 2s
       setTimeout(() => setTtsKey(k => k + 1), 2000);
     } else {
-      // Second error → give up, start listening as fallback
       ttsRetryCountRef.current = 0;
       if (!doneRef.current && !mutedRef.current) {
         setAgentState('ECOUTE');
@@ -822,12 +826,25 @@ export default function VoiceDeclarationAgent({ currentUser, onDeclarationCreate
   const matchVehiculeByNumber = useCallback((input: string): string | null => {
     if (vehiculeChoices.length === 0) return null;
     const t = input.trim().toLowerCase();
+    // 1) Direct number match (choice index 1-4)
     const direct = parseInt(t);
     if (!isNaN(direct) && direct >= 1 && direct <= vehiculeChoices.length) return vehiculeChoices[direct - 1].label_darija;
+    // 2) Extract digits from normalized text and try as choice number
     const norm = normalizeImmatriculation(t);
     const digits = norm.replace(/\D/g, '');
     const parsed = parseInt(digits);
     if (!isNaN(parsed) && parsed >= 1 && parsed <= vehiculeChoices.length) return vehiculeChoices[parsed - 1].label_darija;
+    // 3) Fuzzy match against vehicle plates (strip separators, partial match)
+    const cleanInput = norm.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    for (const vc of vehiculeChoices) {
+      const cleanPlate = vc.label_darija.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+      // Exact match after stripping separators
+      if (cleanInput === cleanPlate) return vc.label_darija;
+      // Spoken text is a prefix of the plate (speech may cut off last letter)
+      if (cleanPlate.startsWith(cleanInput)) return vc.label_darija;
+      // Spoken text contains the plate number portion (123 from "12345 A 6")
+      if (cleanInput.includes(cleanPlate) || cleanPlate.includes(cleanInput)) return vc.label_darija;
+    }
     return null;
   }, [vehiculeChoices]);
 

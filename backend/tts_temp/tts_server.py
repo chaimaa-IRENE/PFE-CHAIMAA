@@ -3,7 +3,13 @@ import sys
 import os
 import json
 import hashlib
+import ssl
 import edge_tts
+import edge_tts.communicate as edge_comm
+
+# Fix: disable SSL verification for edge-tts (SSL certificate issues on some networks)
+edge_comm._SSL_CTX.check_hostname = False
+edge_comm._SSL_CTX.verify_mode = ssl.CERT_NONE
 
 TTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tts_cache")
 os.makedirs(TTS_DIR, exist_ok=True)
