@@ -3,6 +3,7 @@ import axios from "axios";
 import { API_BASE } from "../config/api";
 import { User, TypePanne, Criticite, DeclarationIncident } from "../types/incident";
 import DriverChecklistView from "./DriverChecklistView";
+import VoiceDeclarationAgent from "./VoiceDeclarationAgent";
 import DashboardLayout from "./ui/DashboardLayout";
 import Card from "./ui/Card";
 import Toast from "./ui/Toast";
@@ -335,6 +336,7 @@ const navItems = [
       { id: 'declaration', label: 'Nouvelle déclaration', icon: <FilePlus className="w-5 h-5" />, onClick: () => setActiveTab('declaration'), active: activeTab === 'declaration' },
       { id: 'mes-declarations', label: 'Mes déclarations', icon: <FileText className="w-5 h-5" />, onClick: () => setActiveTab('mes-declarations'), active: activeTab === 'mes-declarations' },
       { id: 'checklist', label: 'Checklist', icon: <ClipboardCheck className="w-5 h-5" />, onClick: () => setActiveTab('checklist'), active: activeTab === 'checklist' },
+      { id: 'voice-agent', label: 'Vocal IA', icon: <Mic className="w-5 h-5" />, onClick: () => setActiveTab('voice-agent'), active: activeTab === 'voice-agent' },
 
       { id: 'profil', label: 'Profil', icon: <UserIcon className="w-5 h-5" />, onClick: () => setActiveTab('profil'), active: activeTab === 'profil' },
     ];
@@ -1074,6 +1076,19 @@ const navItems = [
         {activeTab === 'mes-declarations' && renderMesDeclarations()}
 
         {activeTab === 'checklist' && <DriverChecklistView currentUser={currentUser} />}
+        {activeTab === 'voice-agent' && (
+          <div className="min-h-[calc(100vh-16rem)] overflow-y-auto">
+            <VoiceDeclarationAgent
+              currentUser={currentUser}
+              onDeclarationCreated={(data) => {
+                setToastMessage('Declaration creee par voie!');
+                setToastType('success');
+                setShowToast(true);
+                setActiveTab('mes-declarations');
+              }}
+            />
+          </div>
+        )}
         {activeTab === 'profil' && renderProfil()}
       </div>
     </DashboardLayout>
