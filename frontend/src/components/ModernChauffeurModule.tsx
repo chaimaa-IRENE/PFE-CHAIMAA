@@ -2,9 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { API_BASE } from "../config/api";
 import { User, TypePanne, Criticite, DeclarationIncident } from "../types/incident";
-import VoiceDeclarationAgent from "./VoiceDeclarationAgent";
 import DriverChecklistView from "./DriverChecklistView";
-import type { AnomalieIAResult } from "./VocalDeclarationIA";
 import DashboardLayout from "./ui/DashboardLayout";
 import Card from "./ui/Card";
 import Toast from "./ui/Toast";
@@ -337,7 +335,7 @@ const navItems = [
       { id: 'declaration', label: 'Nouvelle déclaration', icon: <FilePlus className="w-5 h-5" />, onClick: () => setActiveTab('declaration'), active: activeTab === 'declaration' },
       { id: 'mes-declarations', label: 'Mes déclarations', icon: <FileText className="w-5 h-5" />, onClick: () => setActiveTab('mes-declarations'), active: activeTab === 'mes-declarations' },
       { id: 'checklist', label: 'Checklist', icon: <ClipboardCheck className="w-5 h-5" />, onClick: () => setActiveTab('checklist'), active: activeTab === 'checklist' },
-      { id: 'voice-agent', label: '🎤 Agent IA Vocal', icon: <Mic className="w-5 h-5" />, onClick: () => setActiveTab('voice-agent'), active: activeTab === 'voice-agent' },
+
       { id: 'profil', label: 'Profil', icon: <UserIcon className="w-5 h-5" />, onClick: () => setActiveTab('profil'), active: activeTab === 'profil' },
     ];
 
@@ -407,62 +405,8 @@ const navItems = [
     }
   };
 
-  const handleAIAnalyse = (r: AnomalieIAResult | Record<string, string>) => {
-    const data = r as AnomalieIAResult;
-    const driverName =
-      data.chauffeur && data.chauffeur !== 'UNKNOWN'
-        ? data.chauffeur
-        : currentUser?.name || '';
-
-    setDeclaration((prev) => ({
-      ...prev,
-      immatriculation: data.vehicule === 'UNKNOWN' ? prev.immatriculation : data.vehicule,
-      chauffeurNom: driverName || prev.chauffeurNom,
-      description: data.description,
-      elementVehicule: data.element === 'UNKNOWN' ? prev.elementVehicule : data.element,
-      detailElement: data.anomalie,
-      categorie: data.categorie,
-      criticite:
-        data.criticite === 'Critique'
-          ? Criticite.BLOQUANT
-          : data.criticite === 'Urgent'
-            ? Criticite.URGENT
-            : data.criticite === 'Faible'
-              ? Criticite.NON_BLOQUANT
-              : Criticite.NON_BLOQUANT,
-      typePanne: mapTypePanne(data.typePanne || '', data.element),
-      source: data.source || 'Voix chauffeur',
-    }));
-
-    matchVehiculeFromIA(data.vehicule);
-
-    if (data.localisation && data.localisation !== 'UNKNOWN') {
-      const cityKey = villeFromLabel(data.localisation);
-      if (cityKey === 'MANUEL') {
-        setManualCity(data.localisation);
-        setLocation((prev) => ({
-          ...prev,
-          city: 'MANUEL',
-          latitude: prev.latitude,
-          longitude: prev.longitude,
-        }));
-      } else {
-        setManualCity('');
-        setLocation((prev) => ({
-          ...prev,
-          city: cityKey,
-          latitude: prev.latitude,
-          longitude: prev.longitude,
-        }));
-      }
-    }
-
-    setCurrentStep(3);
-    setActiveTab('declaration');
-    setToastMessage('Formulaire prérempli par l\'IA vocale');
-    setToastType('success');
-    setShowToast(true);
-  };
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleAIAnalyse = (_r: Record<string, string>) => { };
 
   const handlePhotoAnalyse = (mapped: Record<string, string>) => {
     setDeclaration((prev) => ({
@@ -1128,19 +1072,7 @@ const navItems = [
       <div className="p-4 sm:p-6 space-y-5">
         {activeTab === 'declaration' && renderDeclarationForm()}
         {activeTab === 'mes-declarations' && renderMesDeclarations()}
-        {activeTab === 'voice-agent' && (
-          <div className="min-h-[calc(100vh-16rem)] overflow-y-auto">
-            <VoiceDeclarationAgent
-              currentUser={currentUser}
-              onDeclarationCreated={(data) => {
-                setToastMessage('Déclaration créée par voie!');
-                setToastType('success');
-                setShowToast(true);
-                setActiveTab('mes-declarations');
-              }}
-            />
-          </div>
-        )}
+
         {activeTab === 'checklist' && <DriverChecklistView currentUser={currentUser} />}
         {activeTab === 'profil' && renderProfil()}
       </div>

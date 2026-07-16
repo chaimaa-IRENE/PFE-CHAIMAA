@@ -107,7 +107,7 @@ export default function AdminModule({ currentUser, onLogout }: AdminModuleProps)
     if (!form.username || !form.role) { showToast("Username et role obligatoires", "error"); return; }
     try {
       if (editItem?.id) { await axios.put(USER_API + "/" + editItem.id, form); showToast("Utilisateur mis a jour", "success"); }
-      else { await axios.post(USER_API, form); showToast("Utilisateur cree", "success"); }
+      else { await axios.post("http://localhost:8080/api/admin/users", form); showToast("Utilisateur cree. Identifiants envoyes par email.", "success"); }
       setShowModal(false); setEditItem(null); setForm({}); fetchAll();
     } catch (err: any) { showToast(err?.response?.data?.error || "Erreur", "error"); }
   };

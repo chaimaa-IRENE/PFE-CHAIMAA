@@ -157,7 +157,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onForgotPassword }) => {
     try {
       const user = await userService.authenticate(u, p);
       setPendingUser(user);
-      if (!user.faceRegistered) { setShowRegisterPrompt(true); setLoading(false); }
+      if (!user.faceRegistered) { setLoading(false); goToDashboard(user); }
       else { setLoading(false); goToDashboard(user); }
     } catch (err: any) {
       soundManager.error();

@@ -1,8 +1,9 @@
-import React, { useState, Suspense, lazy } from "react";
+import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import AppModern from "./components/AppModern";
 import ForgotPassword from "./components/ForgotPassword";
 import ResetPassword from "./components/ResetPassword";
+import Login from "./components/Login";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ToastProvider } from "./lib/Toast";
 import { AuroraBackground } from "./lib/premium/AuroraBackground";
@@ -12,21 +13,6 @@ import { Truck, Shield, ArrowRight, Activity, ChevronDown, Gauge, Zap } from "lu
 import { pageTransition, fadeInUp, springBouncy, cardStagger } from "./lib/animations";
 import "./App.css";
 
-const Login = lazy(() => import("./components/Login"));
-
-const LoginFallback = () => (
-  <div className="min-h-screen flex items-center justify-center bg-[#050811]">
-    <div className="flex flex-col items-center gap-4">
-      <motion.div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center"
-        animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }}>
-        <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M1 3h15v13H1z" /><path d="M16 8h4l3 3v5h-7V8z" />
-          <circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
-        </svg>
-      </motion.div>
-    </div>
-  </div>
-);
 
 function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -190,9 +176,7 @@ function App() {
           )}
           {page === "login" && (
             <motion.div key="login" variants={pageTransition} initial="initial" animate="animate" exit="exit">
-              <Suspense fallback={<LoginFallback />}>
-                <Login onLoginSuccess={handleLoginSuccess} onForgotPassword={() => setPage("forgot")} />
-              </Suspense>
+              <Login onLoginSuccess={handleLoginSuccess} onForgotPassword={() => setPage("forgot")} />
             </motion.div>
           )}
         </AnimatePresence>

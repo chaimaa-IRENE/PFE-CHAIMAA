@@ -95,6 +95,15 @@ export default function ChauffeurCheckup() {
   const fetchAvailableVehicles = async () => {
     setLoading(true);
     try {
+      const chauffeurId = currentUser?.id;
+      if (chauffeurId) {
+        try {
+          const res = await axios.get<any[]>(`${API_BASE}/api/vehicules/chauffeur/${chauffeurId}`);
+          setVehicles(res.data || []);
+          setLoading(false);
+          return;
+        } catch { }
+      }
       const res = await axios.get<any>(VEHICLE_API);
       setVehicles(res.data.vehicles || res.data || []);
     } catch {
