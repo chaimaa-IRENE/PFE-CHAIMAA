@@ -2,6 +2,7 @@
 
 ## Table des matières
 
+0. [Démarrage rapide (Quick Start)](#0-démarrage-rapide-quick-start)
 1. [Présentation du projet](#1-présentation-du-projet)
 2. [Architecture technique](#2-architecture-technique)
 3. [Prérequis techniques](#3-prérequis-techniques)
@@ -30,6 +31,73 @@
     - [Installation et configuration du vocal](#117-installation-et-configuration-du-vocal)
     - [Utilisation pas à pas](#118-utilisation-pas-à-pas)
     - [Voix et langues supportées](#119-voix-et-langues-supportées)
+
+---
+
+## 0. Démarrage rapide (Quick Start)
+
+> **Objectif :** Lancer l'application complète en moins de 5 minutes.
+
+### 0.1 Vérifier les prérequis
+
+```powershell
+# Terminal PowerShell (Administrateur)
+java -version                          # Doit être 21+
+node --version                         # Doit être 18+
+python --version                       # Doit être 3.8+ (obligatoire pour le TTS vocal)
+pip install edge-tts                   # Moteur TTS (une seule fois)
+npm --version                          # Inclus avec Node.js
+```
+
+### 0.2 Lancer les 3 serveurs
+
+```powershell
+# 1. Backend Spring Boot (port 8080)
+Set-Location backend
+C:\Users\moutaoch\Downloads\apache-maven-3.9.15-bin\apache-maven-3.9.15\bin\mvn.cmd spring-boot:run
+# Attendre ~50s : "Started UserManagementApplication"
+
+# 2. Frontend React (port 3000) — DANS UN AUTRE TERMINAL
+Set-Location frontend
+npm install --legacy-peer-deps   # Une seule fois
+npm start
+
+# 3. Serveur TTS Python (port 5000) — DANS UN AUTRE TERMINAL (OPTIONNEL)
+# Le TTS fonctionne aussi via le backend (plus simple, pas besoin de ce serveur)
+python backend/tts_temp/tts_http_server.py 5000
+```
+
+### 0.3 Accéder à l'application
+
+| URL | Service |
+|-----|---------|
+| `http://localhost:3000` | Interface utilisateur (Frontend React) |
+| `http://localhost:8080` | API REST (Backend Spring Boot) |
+
+### 0.4 Comptes de test
+
+| Login | Mot de passe | Rôle |
+|-------|-------------|------|
+| `admin` | `admin123` | Administrateur |
+| `chauffeur_casa` | `driver123` | Chauffeur (4 véhicules assignés) |
+| `rs_support` | `support123` | Responsable Support |
+
+### 0.5 Test rapide de l'agent vocal
+
+```powershell
+# 1. Démarrer une session
+$headers = @{ "Content-Type" = "application/json" }
+$body = '{ "chauffeurId": 2, "chauffeurNom": "Hicham", "chauffeurMatricule": "CH-001" }'
+$session = Invoke-RestMethod -Uri "http://localhost:8080/api/voice-agent/start" `
+  -Method Post -Headers $headers -Body $body
+Write-Host "Session: $($session.sessionId) - Step: $($session.step)"
+
+# 2. Répondre "oui" au greeting
+$respondBody = "{ `"sessionId`": `"$($session.sessionId)`", `"step`": 1, `"response`": `"oui`" }"
+$step2 = Invoke-RestMethod -Uri "http://localhost:8080/api/voice-agent/respond" `
+  -Method Post -Headers $headers -Body $respondBody
+Write-Host "Step 2: $($step2.field) - Véhicules: $($step2.choices.Count)"
+```
 
 ---
 
@@ -66,34 +134,39 @@
 ## 2. Architecture technique
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   FRONTEND                          │
-│          React 19 + TypeScript + Tailwind            │
-│          Port 3000 (CRA proxy vers 8080)             │
-└──────────────────┬──────────────────────────────────┘
-                   │
-    ┌──────────────┼──────────────┐
-    │   /api/*     │  /users/*    │
-    ▼              ▼              ▼
-┌─────────────────────────────────────────────────────┐
-│                    BACKEND                           │
-│          Spring Boot 3.2.0 / Java 21                 │
-│                 Port 8080                            │
-│                                                      │
-│  ┌──────────┐  ┌────────────┐  ┌────────────────┐   │
-│  │Controllers│→│  Services   │→│  Repositories   │   │
-│  └──────────┘  └────────────┘  └────────┬───────┘   │
-│                                          │           │
-└──────────────────────────────────────────┼───────────┘
-                                           │
-                    ┌──────────────────────┼──────────────┐
-                    ▼                      ▼              ▼
-         ┌────────────────┐     ┌────────────────┐     ┌─────────────┐
-         │   SQL Server    │     │  H2 (dev)      │     │   Service   │
-         │  (Production)   │     │  (Test)         │     │    IA       │
-         │  Port 1433      │     │  Fichier .mv.db  │     │  Python     │
-         └────────────────┘     └────────────────┘     │  Port 5001  │
-                                                        └─────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                      FRONTEND                            │
+│            React 19 + TypeScript + Tailwind               │
+│            Port 3000 (CRA proxy → 8080)                   │
+│              │                                            │
+│  ┌───────────┴────────────┐                               │
+│  │ /api/*  (dont /api/tts)│    /tts/* (optionnel)         │
+│  │    → proxy :8080       │    → proxy :5000              │
+│  └───────────┬────────────┘                               │
+└──────────────┼────────────────────────────────────────────┘
+               │
+┌──────────────┼────────────────────────────────────────────┐
+│              ▼             BACKEND                        │
+│    ┌─────────────────┐   Spring Boot 3.2 / Java 21        │
+│    │  TtsController   │          Port 8080                │
+│    │  /api/tts/speak  │                                   │
+│    └────────┬────────┘  ┌──────────┐  ┌────────────────┐  │
+│             │           │Services  │→│  Repositories   │  │
+│             ▼           └──────────┘  └────────┬───────┘  │
+│    ┌──────────────────┐                        │          │
+│    │ Python CLI (cmd) │                        │          │
+│    │ edge-tts → MP3   │                        │          │
+│    └──────────────────┘                        │          │
+└────────────────────────────────────────────────┼──────────┘
+                                                 │
+                      ┌──────────────────────────┼──────────────┐
+                      ▼                          ▼              ▼
+           ┌────────────────┐       ┌────────────────┐    ┌──────────┐
+           │   SQL Server    │       │   H2 (dev)     │    │ Service  │
+           │  (Production)   │       │  (Test)         │    │  IA      │
+           │  Port 1433      │       │  .mv.db fichier │    │ Python   │
+           └────────────────┘       └────────────────┘    │Port 5001 │
+                                                           └──────────┘
 ```
 
 ### Stack technique détaillée
@@ -149,11 +222,11 @@
 ### 3.4 Réseau
 
 - Les ports suivants doivent être ouverts/localement disponibles :
-  - **1433** — SQL Server
   - **8080** — Backend Spring Boot
   - **3000** — Frontend React (dev)
-  - **5000** — TTS (optionnel)
-  - **5001** — API IA (optionnel)
+  - **1433** — SQL Server (optionnel, uniquement pour le profil `sqlserver`)
+  - **5000** — TTS HTTP Server (optionnel, alternative au TTS via backend)
+  - **5001** — API IA Python (optionnel)
 
 ---
 
@@ -463,11 +536,13 @@ ollama.model=llama3.2:1b
 ### 8.3 Configuration proxy du frontend
 
 Le fichier **`frontend/src/setupProxy.js`** redirige :
-- `/api/*` → `http://localhost:8080`
+- `/api/*` → `http://localhost:8080` (inclut `/api/tts/speak` pour le TTS)
 - `/users/*` → `http://localhost:8080`
 - `/admin/*` → `http://localhost:8080`
 - `/uploads/*` → `http://localhost:8080`
-- `/tts` → `http://localhost:5000` (service TTS)
+- `/tts/*` → `http://localhost:5000` (service TTS HTTP alternatif, inutilisé par défaut)
+
+> **Note :** Le TTS (`/api/tts/speak`) passe par le backend Spring Boot qui appelle le script Python. Aucun serveur TTS séparé n'est nécessaire.
 
 Pour changer l'URL du backend en production, décommentez dans `frontend/.env` :
 ```env
@@ -568,11 +643,40 @@ del backend\data\driverhub.mv.db
 del backend\data\driverhub.trace.db
 ```
 
-### 9.6 Le service TTS ne démarre pas
+### 9.6 Le TTS (voix) ne fonctionne pas
 
-**Symptôme :** `python : Python was not found`
+**Symptôme :** L'agent vocal parle mais aucun son n'est produit
 
-**Solution :** Installer Python depuis https://www.python.org/downloads/
+**Solutions :**
+1. Vérifier que Python est accessible :
+   ```cmd
+   python --version
+   ```
+   Si "Python was not found", désactiver les **App execution aliases** dans Paramètres Windows > Applications > Alias d'exécution (décocher python.exe et python3.exe)
+
+2. Vérifier que edge-tts est installé :
+   ```cmd
+   python -m pip show edge-tts
+   ```
+   Sinon : `python -m pip install edge-tts`
+
+3. Vérifier le chemin Python dans `application.properties` :
+   ```properties
+   tts.python.path=C:/Users/votre_user/AppData/Local/Programs/Python/Python310/python.exe
+   ```
+
+4. Test direct via l'API :
+   ```powershell
+   curl "http://localhost:8080/api/tts/speak?text=salam&voice=ar-MA-JamalNeural&rate=-5pct" -o test.mp3
+   ```
+   Si erreur `TTS process exit code 9009` → Python introuvable
+   Si erreur `ModuleNotFoundError` → edge-tts non installé
+
+5. Vérifier que le script CLI existe :
+   ```cmd
+   dir backend\tts_temp\tts_server.py
+   ```
+   (Ne pas confondre avec `ia/tts_server.py` qui est un serveur Flask, pas la CLI)
 
 ### 9.7 Erreurs TypeScript au build frontend
 
@@ -794,27 +898,45 @@ Le service TTS convertit le texte en parole (synthèse vocale) pour permettre à
 
 ```
 Frontend (VoiceDeclarationAgent.tsx)
-  ↓  Requête HTTP GET /tts/api/tts/speak?text=...&voice=ar-MA-JamalNeural&rate=-5%
-  ↓  (proxy CRA : /tts → http://localhost:5000)
+  ↓  playTts("salam") → URL: /api/tts/speak?text=...&voice=ar-MA-JamalNeural&rate=-5%25
+  ↓  (proxy CRA /api/* → http://localhost:8080)
   ↓
-Serveur TTS (ia/tts_server.py)
-  ↓  Edge TTS (Microsoft Azure Cognitive Services)
+Backend Spring Boot (TtsController.java)
+  ↓  GET /api/tts/speak
   ↓
-Retourne fichier audio MP3
+Commande système : cmd /c python backend/tts_temp/tts_server.py "salam" "ar-MA-JamalNeural" "-5pct"
+  ↓  Edge TTS (Microsoft Cognitive Services)
   ↓
-Frontend : lit le MP3 avec <audio>
+Fichier MP3 généré → Retourné au frontend
+  ↓
+Frontend : lit le MP3 avec <audio> et le joue
 ```
+
+**Architecture alternative (serveur HTTP Python dédié) :**
+
+```
+Frontend (VoiceDeclarationAgent.tsx)
+  ↓  playTts("salam") → URL: /tts/api/tts/speak?text=...
+  ↓  (proxy CRA /tts/* → http://localhost:5000, pathRewrite: ^/tts → "")
+  ↓
+Serveur TTS Python (backend/tts_temp/tts_http_server.py)
+  ↓  GET /api/tts/speak
+  ↓  edge-tts → MP3
+```
+
+> **Recommandation :** Utiliser la 1ʳᵉ architecture (via backend), plus simple à déployer (pas de processus Python supplémentaire).
 
 **Détails techniques :**
 
 | Propriété | Valeur |
 |-----------|--------|
-| Serveur | Python Flask, port 5000 |
 | Moteur | `edge-tts` (Microsoft Edge TTS) |
 | Voix par défaut | `ar-MA-JamalNeural` (Arabe marocain) |
 | Débit | `-5%` (ralenti pour meilleure compréhension) |
 | Format | MP3 (audio/mpeg) |
-| Endpoints | `GET /api/tts/speak`, `GET /api/health`, `GET /api/tts/voices` |
+| Cache | MD5 du texte + voix → fichier MP3 dans `backend/tts_temp/tts_cache/` |
+| Endpoint backend | `GET /api/tts/speak?text=...&voice=...&rate=...` |
+| Endpoint Python | `GET /api/tts/speak` (sur port 5000) |
 
 ### 11.6 Service STT (Speech-to-Text)
 
@@ -840,44 +962,63 @@ La reconnaissance vocale transforme la parole du chauffeur en texte.
 
 ### 11.7 Installation et configuration du vocal
 
-#### Installation du service TTS (obligatoire pour la voix)
+#### Prérequis
 
 ```cmd
-# 1. Installer Python 3.8+ (si pas déjà fait)
-#    Téléchargement : https://www.python.org/downloads/
+# 1. Installer Python 3.8+ (https://www.python.org/downloads/)
+#    Important : décocher "App execution aliases" dans Paramètres Windows
+#    pour que "python" fonctionne en ligne de commande
 
-# 2. Installer edge-tts
-pip install edge-tts flask flask-cors
+# 2. Installer edge-tts (moteur de synthèse vocale)
+python -m pip install edge-tts
 
-# 3. Lancer le serveur TTS
-cd ia
-python tts_server.py
+# 3. Vérifier l'installation
+python -c "import edge_tts; print('OK')"
 ```
-> Le serveur démarre sur `http://localhost:5000`. Vérifier avec `http://localhost:5000/api/health`
 
-#### Configuration backend
+#### Configuration backend (déjà préconfigurée)
 
 Dans `backend/src/main/resources/application.properties` :
 ```properties
-# Chemin vers Python (ajuster selon votre installation)
-tts.python.path=python
+# Chemin absolu vers Python (important : utiliser le chemin complet)
+tts.python.path=C:/Users/moutaoch/AppData/Local/Programs/Python/Python310/python.exe
 
-# Chemin vers le script TTS (à mettre à jour !)
-tts.script.path=C:/chemin/vers/mon-projet-extraction/ia/tts_server.py
+# Chemin vers le script TTS CLI (backend/tts_temp/tts_server.py, PAS ia/tts_server.py)
+tts.script.path=C:/chemin/vers/backend/tts_temp/tts_server.py
 
 # Voix par défaut
 tts.voice=ar-MA-JamalNeural
 tts.rate=-5pct
-
-# Ollama (NLP Darija) - optionnel mais recommandé
-ollama.enabled=true
-ollama.url=http://localhost:11434
-ollama.model=llama3.2:1b
 ```
 
-#### Proxy frontend
+> ⚠️ **Important :** Le script TTS est `backend/tts_temp/tts_server.py` (CLI), pas `ia/tts_server.py` (Flask web server).
 
-Le fichier `frontend/src/setupProxy.js` redirige déjà `/tts` → `http://localhost:5000`. Aucune modification nécessaire en développement.
+#### Test rapide du TTS
+
+```powershell
+# Via le backend (recommendé)
+curl "http://localhost:8080/api/tts/speak?text=salam&voice=ar-MA-JamalNeural&rate=-5pct" -o test.mp3
+# Vérifier : le fichier test.mp3 doit faire ~10KB et contenir l'audio
+
+# Directement via Python
+python backend/tts_temp/tts_server.py "salam" "ar-MA-JamalNeural" "-5pct"
+# Résultat : {"status":"ok","path":"...tts_cache/xxxx.mp3"}
+```
+
+#### Configuration alternative : serveur HTTP Python
+
+Pour une architecture avec serveur TTS dédié (port 5000) :
+```cmd
+# Lancer le serveur HTTP
+python backend/tts_temp/tts_http_server.py 5000
+```
+
+Puis modifier `frontend/src/config/api.ts` :
+```typescript
+export const TTS_BASE = process.env.REACT_APP_TTS_URL || "/tts";
+```
+
+Le proxy `frontend/src/setupProxy.js` redirigera `/tts/*` → `http://localhost:5000`.
 
 #### Configuration réseau (production)
 
@@ -885,9 +1026,9 @@ Pour un accès depuis d'autres machines (tablettes, téléphones) :
 ```env
 # Dans frontend/.env (décommentez et adaptez)
 REACT_APP_API_URL=http://192.168.1.40:8080
-REACT_APP_TTS_URL=http://192.168.1.40:5000
 ```
 > Remplacez `192.168.1.40` par l'adresse IP du serveur.
+> Le TTS passe par le backend, donc pas besoin de configurer `REACT_APP_TTS_URL`.
 
 ### 11.8 Utilisation pas à pas
 
