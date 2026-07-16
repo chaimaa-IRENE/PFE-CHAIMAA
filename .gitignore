@@ -12,3 +12,38 @@ Thumbs.db
 *.mv.db
 *.h2.db
 data/
+
+# Backend
+backend/backend_start.err
+backend/build_test.err
+backend/tts_temp/*.mp3
+backend/tts_temp/__pycache__/
+backend/tts_temp/tts_cache/
+backend/*.log
+backend/*.err
+backend/*.iml
+backend/qa_dump.txt
+
+# Frontend
+frontend/frontend.log.err
+frontend/public/logo192.png
+frontend/public/logo512.png
+*.bak
+
+# IA / Python
+__pycache__/
+*.pyc
+ia/yolov8n.pt
+ia/test_*.png
+ia/tests_*.png
+ia/models/runs/
+ia/__pycache__/
+
+# Scripts data
+backend/scripts/powerbi_data/*.csv
+
+# Root
+qa_dump.txt
+vehicles_raw.json
+test_*.ps1
+*.log
