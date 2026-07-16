@@ -551,8 +551,18 @@ export default function VoiceDeclarationAgent({ currentUser, onDeclarationCreate
 
   const fetchVehicules = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/api/vehicules`);
-      const list = Array.isArray(res.data) ? res.data : [];
+      const chauffeurId = currentUser?.id || 0;
+      let list: any[] = [];
+      if (chauffeurId > 0) {
+        try {
+          const res = await axios.get(`${API}/api/vehicules/chauffeur/${chauffeurId}`);
+          list = Array.isArray(res.data) ? res.data : [];
+        } catch { }
+      }
+      if (list.length === 0) {
+        const res = await axios.get(`${API}/api/vehicules`);
+        list = Array.isArray(res.data) ? res.data : [];
+      }
       vehiculesDataRef.current = list;
       const choix: DarijaChoice[] = list.map((v: any, i: number) => ({
         id: i + 1,
@@ -562,7 +572,7 @@ export default function VoiceDeclarationAgent({ currentUser, onDeclarationCreate
       }));
       setVehiculeChoices(choix);
     } catch { vehiculesDataRef.current = []; setVehiculeChoices([]); }
-  }, []);
+  }, [currentUser?.id]);
 
   const stopTts = useCallback(() => {
     stopTtsRef.current = true;
